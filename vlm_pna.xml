@@ -1,37 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns:xml-module="http://www.mulesoft.org/schema/mule/xml-module" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:xml-module="http://www.mulesoft.org/schema/mule/xml-module" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/xml-module http://www.mulesoft.org/schema/mule/xml-module/current/mule-xml-module.xsd
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
-	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="2080f0d0-0fcf-4886-b20e-fd89694b50f5" >
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="842037a4-18d4-4991-8171-7774f390c1ea" >
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
-	<file:config name="File_Config" doc:name="File Config" doc:id="5162aa9a-3b66-45ce-b219-c2ca77b4c99e" >
+	<file:config name="File_Config" doc:name="File Config" doc:id="fd236340-3848-479b-b518-e4cf4785b924" >
 		<file:connection workingDir="/Users/povilasnarusis/AnypointStudio/studio-workspace/vlm_pna/src/main/mule" />
 	</file:config>
-	<flow name="vlm_pnaFlow" doc:id="06e3840d-a526-465c-b2f5-97fd0cf08fe7" >
-		<http:listener doc:name="Listener" doc:id="7e83a71d-1a03-4df6-b842-b1a0a4fa8eda" config-ref="HTTP_Listener_config" path="/requestapi"/>
-		<file:read doc:name="readxml" doc:id="798e34b1-49fe-44a5-b5c7-9857c663128e" path="/vlm_pna/src/main/mule/karnel_logs_20220414.xml" config-ref="File_Config"/>
-		<choice doc:name="Status failed" doc:id="79b08889-e086-48de-a4d4-91fcddfb9e1f" >
-			<when expression='#[payload.karnel_log_management.transaction.status == "03" or&#10;payload.karnel_log_management.transaction.status == "02"]' doc:id="cbb3a03d-1eff-4fec-8beb-c2c520f013ad"/>
-		</choice>
-		<ee:transform doc:name="Transform Message" doc:id="4da4d9c6-8ce0-416e-be47-63afc7d34c8f" >
+	<validation:config name="Validation_Config" doc:name="Validation Config" doc:id="51269179-459b-4295-9684-2ccf375f3025" />
+	<flow name="vlm_pnaFlow1" doc:id="e69368fa-fcfd-40e3-955e-47b79856c96e" >
+		<file:read doc:name="Read" doc:id="b6ba7d5f-1909-429e-b06b-7cb9d0674b6c" path="/Users/povilasnarusis/AnypointStudio/studio-workspace/vlm_pna/src/main/mule/karnel_logs_20220414.xml" config-ref="File_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="4a3bb77e-7358-4ef2-a28e-b0282ea21521" >
 			<ee:message >
-				<ee:set-payload ><![CDATA[%dw 2.0
-output application/java
+				<ee:set-payload ><![CDATA[var records = payload.karnel_log_management default []
+var filtered = records.*transaction filter ($.status == '03' or $.status == '02' or $.status == null)
+
+output application/json
 ---
-{
-	"DATE TIME":payload.date,
-    "Transaction ID": payload.karnel_log_management.transaction.id,
-    "Start time": payload.karnel_log_management.transaction.start_time,
-    "Responsible employee": payload.karnel_log_management.transaction.wh_emp,
-    "Status": payload.karnel_log_management.transaction.status
-}]]></ee:set-payload>
+filtered]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="19350371-2c47-4a26-bfb2-1767efb004c1" message="#[payload]"/>
+		<file:write doc:name="Write" doc:id="ce3ab584-9692-463e-b122-56de22f696f7" config-ref="File_Config" path="/Users/povilasnarusis/AnypointStudio/studio-workspace/vlm_pna/src/main/mule/karnel" mode="APPEND">
+			<file:content ><![CDATA[#[%dw 2.0
+output application/json
+---
+payload]]]></file:content>
+		</file:write>
 	</flow>
 </mule>
